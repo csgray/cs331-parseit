@@ -5,31 +5,31 @@
 -- Heavily based on "rdparser4.lua" by Glenn G. Chappell
 -- Requires lexit.lua
 
--- Grammar
--- program     →  	stmt_list
--- stmt_list   →  	{ statement }
--- statement   →  	‘input’ lvalue
---             |  	‘print’ print_arg { ‘;’ print_arg }
---             |  	‘func’ ID stmt_list ‘end’
---             |  	‘call’ ID
---             |  	‘if’ expr stmt_list { ‘elseif’ expr stmt_list } [ ‘else’ stmt_list ] ‘end’
---             |  	‘while’ expr stmt_list ‘end’
---             |  	lvalue ‘=’ expr
--- print_arg   →  	‘cr’
---             |  	STRLIT
---             |  	expr
--- expr        →  	comp_expr { ( ‘&&’ | ‘||’ ) comp_expr }
--- comp_expr   →  	‘!’ comp_expr
---             |  	arith_expr { ( ‘==’ | ‘!=’ | ‘<’ | ‘<=’ | ‘>’ | ‘>=’ ) arith_expr }
--- arith_expr  →  	term { ( ‘+’ | ‘-’ ) term }
--- term        →  	factor { ( ‘*’ | ‘/’ | ‘%’ ) factor }
--- factor      →  	‘(’ expr ‘)’
---             |  	( ‘+’ | ‘-’ ) factor
---             |  	‘call’ ID
---             |  	NUMLIT
---             |  	( ‘true’ | ‘false’ )
---             |  	lvalue
--- lvalue      →  	ID [ ‘[’ expr ‘]’ ]
+-- Grammar (with line numbers)
+-- (01) program     →  	stmt_list
+-- (02) stmt_list   →  	{ statement }
+-- (03) statement   →  	‘input’ lvalue
+-- (04)             |  	‘print’ print_arg { ‘;’ print_arg }
+-- (05)             |  	‘func’ ID stmt_list ‘end’
+-- (06)             |  	‘call’ ID
+-- (07)             |  	‘if’ expr stmt_list { ‘elseif’ expr stmt_list } [ ‘else’ stmt_list ] ‘end’
+-- (08)             |  	‘while’ expr stmt_list ‘end’
+-- (09)             |  	lvalue ‘=’ expr
+-- (10) print_arg   →  	‘cr’
+-- (11)             |  	STRLIT
+-- (12)             |  	expr
+-- (13) expr        →  	comp_expr { ( ‘&&’ | ‘||’ ) comp_expr }
+-- (14) comp_expr   →  	‘!’ comp_expr
+-- (15)             |  	arith_expr { ( ‘==’ | ‘!=’ | ‘<’ | ‘<=’ | ‘>’ | ‘>=’ ) arith_expr }
+-- (16) arith_expr  →  	term { ( ‘+’ | ‘-’ ) term }
+-- (17) term        →  	factor { ( ‘*’ | ‘/’ | ‘%’ ) factor }
+-- (18) factor      →  	‘(’ expr ‘)’
+-- (19)             |  	( ‘+’ | ‘-’ ) factor
+-- (20)             |  	‘call’ ID
+-- (21)             |  	NUMLIT
+-- (22)             |  	( ‘true’ | ‘false’ )
+-- (23)             |  	lvalue
+-- (24) lvalue      →  	ID [ ‘[’ expr ‘]’ ]
 --
 -- The following binary operators are left-associative:
 -- &&, ||, ==, !=, <, <=, >, >=, binary +, binary -, *, /, %
@@ -72,11 +72,10 @@ local lexemeCategory = 0
 -- Function initialize must be called before this function is called.
 local function advance()
   lexerOutString, lexerOutCategory = iterator(state, lexerOutString)
-  
   -- If we're not past the end, copy current lexeme into variables
   if lexerOutString ~= nil then
     lexemeString, lexemeCategory = lexerOutString, lexerOutCategory
-  else 
+  else
     lexemeString, lexemeCategory = "", 0
   end
 end
@@ -84,7 +83,7 @@ end
 -- initialize
 -- Initial call. Sets the input for parsing functions.
 local function initialize(program)
-  iterator, state, lexerOutString, lexerOutCategory = lexit.lex(program)
+  iterator, state, lexerOutString = lexit.lex(program)
   advance()
 end
 
@@ -92,7 +91,36 @@ end
 -- Return true if position has reached end of input.
 -- Function init must be called before this function is called.
 local function atEnd()
+  io.write(lexemeCategory)
   return lexemeCategory == 0
+end
+
+-- matchString
+-- Sees if current lexemeString is equal to given string.
+-- If it is, advances to the next lexeme and returns true.
+-- If it is not, then does not advance and returns false.
+-- Function initialize must be called before this function is called.
+local function matchString(string)
+  if lexemeString == string then
+    advance()
+    return true
+  else
+    return false
+  end
+end
+
+-- matchCategory
+-- Sees if current lexemeCategory is qual to given lexeme category (integer).
+-- If it is, advances to the next lexeme and returns true.
+-- If it is not, does not advance and returns false.
+-- Function initialize must be called before this function is called.
+local function matchCategory(category)
+  if lexemeCategory == category then
+    advance()
+    return true
+  else
+    return false
+  end
 end
 
 -- Primary Function for Client Code
@@ -120,8 +148,8 @@ end
 -- Parsing function for nonterminal "program"
 -- Function initialize must be called before this function is called.
 function parse_program()
-  local good, ast
-  good, ast = parse_stmt_list()
+  -- (01) Program
+  local good, ast = parse_stmt_list()
   return good, ast
 end
 
@@ -129,31 +157,8 @@ end
 -- Parsing function for nonterminal "stmt_list"
 -- Function initialize must be called before this function is called.
 function parse_stmt_list()
-  local good, ast, newast
-  ast = { STMT_LIST }
-  while true do
-    if lexemeString ~= "input"
-      and lexemeString ~= "print"
-      and lexemeString ~= "func"
-      and lexemeString ~= "call"
-      and lexemeString ~= "if"
-      and lexemeString ~= "while"
-      and lexemeCategory ~= lexit.ID then
-        return true, ast
-    end
-    good, newast = parse_statement()
-    if not good then
-      return false, nil
-    end
-    table.insert(ast, newast)
-  end
+  local ast = { STMT_LIST }
+  return true, ast
 end
-
--- parse_statement()
--- Parsing function for nonterminal "statement"
-function parse_statement()
-  return
-end
-
 
 return parseit
