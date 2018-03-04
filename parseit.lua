@@ -91,7 +91,6 @@ end
 -- Return true if position has reached end of input.
 -- Function init must be called before this function is called.
 local function atEnd()
-  io.write(lexemeCategory)
   return lexemeCategory == 0
 end
 
@@ -158,7 +157,67 @@ end
 -- Function initialize must be called before this function is called.
 function parse_stmt_list()
   local ast = { STMT_LIST }
-  return true, ast
+  
+  --io.write("Lexeme String: " .. lexemeString)
+  --io.write("Lexeme Category: " .. lexemeCategory)
+  if lexemeString ~= "input"
+    and lexemeString ~= "print"
+    and lexemeString ~= "func"
+    and lexemeString ~= "call"
+    and lexemeString ~= "if"
+    and lexemeString ~= "while"
+    and lexemeCategory ~= lexit.ID then
+      return true, ast
+  end
+  return false, nil
+end
+
+-- parse_statement
+-- Parsing function for nonterminal "statement"
+function parse_statement()
+  return true
+end
+
+-- parse_print_arg()
+-- Parsing function for nonterminal "print_arg"
+function parse_print_arg()
+  return true
+end
+
+-- parse_expr
+-- Parsing function for nonterminal "expr"
+function parse_expr()
+  return true
+end
+
+-- parse_comp_expr
+-- Parsing function for nonterminal "comp_expr"
+function parse_comp_expr()
+  return true
+end
+
+-- parse_arith_expr
+-- Parsing function for nonterminal "arith_expr"
+function parse_arith_expr()
+  return true
+end
+
+-- parse_term
+-- Parsing function for nonterminal "term"
+function parse_term()
+  return true
+end
+
+-- parse_factor
+-- Parsing function for nonterminal "factor"
+function parse_factor()
+  return true
+end
+
+-- parse_lvalue
+-- Parsing function for nonterminal "lvalue"
+function parse_lvalue()
+  return true
 end
 
 return parseit
