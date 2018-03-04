@@ -1,7 +1,9 @@
 #!/usr/bin/env lua
--- parseit_test.lua  UNFINISHED
+-- parseit_test.lua
+-- VERSION 2
 -- Glenn G. Chappell
 -- 23 Feb 2018
+-- Updated 28 Feb 2018
 --
 -- For CS F331 / CSCE A331 Spring 2018
 -- Test Program for Module parseit
@@ -366,8 +368,6 @@ function test_simple(t)
       "Bad program: Keyword only #2")
     checkParse(t, "else", true, false, nil,
       "Bad program: Keyword only #3")
-    checkParse(t, "cr", true, false, nil,
-      "Bad program: Keyword only #4")
     checkParse(t, "bc", false, true, nil,
       "Bad program: Identifier only")
     checkParse(t, "123", true, false, nil,
@@ -403,6 +403,8 @@ function test_call_stmt(t)
       "Bad call statement: extra call")
     checkParse(t, "call sss sss", false, true, nil,
       "Bad call statement: extra name")
+    checkParse(t, "call (sss)", false, false, nil,
+      "Bad call statement: parentheses around name")
 end
 
 
@@ -435,44 +437,65 @@ function test_input_stmt(t)
 end
 
 
-function test_print_stmt(t)
-    io.write("Test Suite: print statements\n")
+function test_print_stmt_no_expr(t)
+    io.write("Test Suite: print statements - no expressions\n")
 
     checkParse(t, "print 'abc'", true, true,
       {STMTxLIST,{PRINTxSTMT,{STRLITxOUT,"'abc'"}}},
       "Print statement: StringLiteral")
-    checkParse(t, "print x", true, true,
-      {STMTxLIST,{PRINTxSTMT,{SIMPLExVAR,"x"}}},
-      "Print statement: variable")
-    checkParse(t, "print a+x[b*(c==d-f)]%g<=h", true, true,
-      {STMTxLIST,{PRINTxSTMT,{{BINxOP,"<="},{{BINxOP,"+"},{SIMPLExVAR,
-        "a"},{{BINxOP,"%"},{ARRAYxVAR,"x",{{BINxOP,"*"},{SIMPLExVAR,
-        "b"},{{BINxOP,"=="},{SIMPLExVAR,"c"},{{BINxOP,"-"},{SIMPLExVAR,
-        "d"},{SIMPLExVAR,"f"}}}}},{SIMPLExVAR,"g"}}},{SIMPLExVAR,
-        "h"}}}},
-      "Print statement: expression")
+    checkParse(t, "print cr", true, true,
+      {STMTxLIST,{PRINTxSTMT,{CRxOUT}}},
+      "Print statement: cr")
+    checkParse(t, "print cr; cr", true, true,
+      {STMTxLIST,{PRINTxSTMT,{CRxOUT},{CRxOUT}}},
+      "Print statement: 2 cr")
+    checkParse(t, "print cr; cr; cr; cr; cr", true, true,
+      {STMTxLIST,{PRINTxSTMT,{CRxOUT},{CRxOUT},{CRxOUT},{CRxOUT},
+        {CRxOUT}}},
+      "Print statement: many cr")
+    checkParse(t, "print 'a'; cr; 'b'; cr", true, true,
+      {STMTxLIST,{PRINTxSTMT,{STRLITxOUT,"'a'"},{CRxOUT},{STRLITxOUT,
+        "'b'"},{CRxOUT}}},
+      "Print statement: StringLiterals & CRs")
+
     checkParse(t, "print", false, true, nil,
       "Bad print statement: empty")
     checkParse(t, "print end", false, false, nil,
-      "Bad print statement: keyword")
-    checkParse(t, "print 1 end", true, false, nil,
-      "Bad print statement: followed by end")
+      "Bad print statement: keyword #1")
+    checkParse(t, "print print", false, false, nil,
+      "Bad print statement: keyword #2")
+    checkParse(t, "print ;", false, false, nil,
+      "Bad print statement: print semicolon")
+    checkParse(t, "; cr", true, false, nil,
+      "Bad print statement: (no print) semicolon cr")
+    checkParse(t, "print cr end", true, false, nil,
+      "Bad print statement: print cr followed by end")
+    checkParse(t, "cr", true, false, nil,
+      "Bad program: (no print) cr only")
+    checkParse(t, "print cr; cr; cr; cr;", false, true, nil,
+      "Bad print statement: end with semicolon")
+    checkParse(t, "print cr;; cr", false, false, nil,
+      "Bad print statement: 2 semicolon")
 end
 
 
-function test_func_stmt(t)
-    io.write("Test Suite: function definitions\n")
+function test_func_stmt_no_expr(t)
+    io.write("Test Suite: function definitions - no expressions\n")
 
     checkParse(t, "func s end", true, true,
       {STMTxLIST,{FUNCxSTMT,"s",{STMTxLIST}}},
       "Function definition: empty body")
     checkParse(t, "func end", false, false, nil,
       "Bad function definition: missing name")
+    checkParse(t, "func &s end", false, false, nil,
+      "Bad function definition: ampersand before name")
+    checkParse(t, "func s() end", false, false, nil,
+      "Bad function definition: C-style parameter list")
     checkParse(t, "func s end end", true, false, nil,
       "Bad function definition: extra end")
-    checkParse(t, "func s &s end", false, false, nil,
+    checkParse(t, "func s s end", false, false, nil,
       "Bad function definition: extra name")
-    checkParse(t, "func (&s) end", false, false, nil,
+    checkParse(t, "func (s) end", false, false, nil,
       "Bad function definition: name in parentheses")
     checkParse(t, "func s print cr end", true, true,
       {STMTxLIST,{FUNCxSTMT,"s",{STMTxLIST,{PRINTxSTMT,{CRxOUT}}}}},
@@ -481,9 +504,9 @@ function test_func_stmt(t)
       {STMTxLIST,{FUNCxSTMT,"s",{STMTxLIST,{PRINTxSTMT,
         {STRLITxOUT,"'x'"}}}}},
       "Function definition: 1-statment body #2")
-    checkParse(t, "func s input x print x end", true, true,
+    checkParse(t, "func s input x call y end", true, true,
       {STMTxLIST,{FUNCxSTMT,"s",{STMTxLIST,{INPUTxSTMT,
-        {SIMPLExVAR,"x"}},{PRINTxSTMT,{SIMPLExVAR,"x"}}}}},
+        {SIMPLExVAR,"x"}},{CALLxFUNC,"y"}}}},
       "Function definition: 2-statment body")
     checkParse(t, "func sss print cr print cr print cr end", true, true,
       {STMTxLIST,{FUNCxSTMT,"sss",{STMTxLIST,{PRINTxSTMT,{CRxOUT}},
@@ -498,77 +521,67 @@ function test_func_stmt(t)
 end
 
 
-function test_while_stmt(t)
-    io.write("Test Suite: while statements\n")
+function test_while_stmt_simple_expr(t)
+    io.write("Test Suite: while statements - simple expressions only\n")
 
-    checkParse(t, "while a print cr end", true, true,
-      {STMTxLIST,{WHILExSTMT,{SIMPLExVAR,"a"},{STMTxLIST,{PRINTxSTMT,
+    checkParse(t, "while 1 print cr end", true, true,
+      {STMTxLIST,{WHILExSTMT,{NUMLITxVAL,"1"},{STMTxLIST,{PRINTxSTMT,
         {CRxOUT}}}}},
       "While statement: simple")
-    checkParse(t, "while a print cr print cr print cr print cr print "
+    checkParse(t, "while 2 print cr print cr print cr print cr print "
      .."cr print cr print cr print cr print cr print cr end", true,
      true,
-      {STMTxLIST,{WHILExSTMT,{SIMPLExVAR,"a"},{STMTxLIST,{PRINTxSTMT,
+      {STMTxLIST,{WHILExSTMT,{NUMLITxVAL,"2"},{STMTxLIST,{PRINTxSTMT,
         {CRxOUT}},{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,{CRxOUT}},
         {PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,
         {CRxOUT}},{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,{CRxOUT}},
         {PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,{CRxOUT}}}}},
       "While statement: longer statement list")
-    checkParse(t, "while a end", true, true,
-      {STMTxLIST,{WHILExSTMT,{SIMPLExVAR,"a"},{STMTxLIST}}},
+    checkParse(t, "while 3 end", true, true,
+      {STMTxLIST,{WHILExSTMT,{NUMLITxVAL,"3"},{STMTxLIST}}},
       "While statement: empty statement list")
-    checkParse(t, "while a while b while c while d while e while f "
-      .."while g print cr end end end end end end end", true, true,
-      {STMTxLIST,{WHILExSTMT,{SIMPLExVAR,"a"},{STMTxLIST,{WHILExSTMT,
-        {SIMPLExVAR,"b"},{STMTxLIST,{WHILExSTMT,{SIMPLExVAR,"c"},
-        {STMTxLIST,{WHILExSTMT,{SIMPLExVAR,"d"},{STMTxLIST,{WHILExSTMT,
-        {SIMPLExVAR,"e"},{STMTxLIST,{WHILExSTMT,{SIMPLExVAR,"f"},
-        {STMTxLIST,{WHILExSTMT,{SIMPLExVAR,"g"},{STMTxLIST,{PRINTxSTMT,
+    checkParse(t, "while 1 while 2 while 3 while 4 while 5 while 6 "
+      .."while 7 print cr end end end end end end end", true, true,
+      {STMTxLIST,{WHILExSTMT,{NUMLITxVAL,"1"},{STMTxLIST,{WHILExSTMT,
+        {NUMLITxVAL,"2"},{STMTxLIST,{WHILExSTMT,{NUMLITxVAL,"3"},
+        {STMTxLIST,{WHILExSTMT,{NUMLITxVAL,"4"},{STMTxLIST,{WHILExSTMT,
+        {NUMLITxVAL,"5"},{STMTxLIST,{WHILExSTMT,{NUMLITxVAL,"6"},
+        {STMTxLIST,{WHILExSTMT,{NUMLITxVAL,"7"},{STMTxLIST,{PRINTxSTMT,
         {CRxOUT}}}}}}}}}}}}}}}}},
       "While statement: nested")
-    checkParse(t, "while a if b while c end elseif d while e if f end "
-      .."end elseif g while h end else while i end end end", true, true,
-      {STMTxLIST,{WHILExSTMT,{SIMPLExVAR,"a"},{STMTxLIST,{IFxSTMT,
-        {SIMPLExVAR,"b"},{STMTxLIST,{WHILExSTMT,{SIMPLExVAR,"c"},
-        {STMTxLIST}}},{SIMPLExVAR,"d"},{STMTxLIST,{WHILExSTMT,
-        {SIMPLExVAR,"e"},{STMTxLIST,{IFxSTMT,{SIMPLExVAR,"f"},
-        {STMTxLIST}}}}},{SIMPLExVAR,"g"},{STMTxLIST,{WHILExSTMT,
-        {SIMPLExVAR,"h"},{STMTxLIST}}},{STMTxLIST,{WHILExSTMT,
-        {SIMPLExVAR,"i"},{STMTxLIST}}}}}}},
-      "While statement: nested while & if")
 
     checkParse(t, "while print cr end", false, false, nil,
       "Bad while statement: no expr")
-    checkParse(t, "while a print cr", false, true, nil,
+    checkParse(t, "while 1 print cr", false, true, nil,
       "Bad while statement: no end")
-    checkParse(t, "while a print cr else print cr end ",
+    checkParse(t, "while 1 print cr else print cr end ",
       false, false, nil,
       "Bad while statement: has else")
-    checkParse(t, "while a print cr end end", true, false, nil,
+    checkParse(t, "while 1 print cr end end", true, false, nil,
       "Bad while statement: followed by end")
 end
 
 
-function test_if_stmt(t)
-    io.write("Test Suite: if statements\n")
+function test_if_stmt_simple_expr(t)
+    io.write("Test Suite: if statements - simple expressions only\n")
 
-    checkParse(t, "if a print cr end", true, true,
-      {STMTxLIST,{IFxSTMT,{SIMPLExVAR,"a"},{STMTxLIST,{PRINTxSTMT,
+    checkParse(t, "if 1 print cr end", true, true,
+      {STMTxLIST,{IFxSTMT,{NUMLITxVAL,"1"},{STMTxLIST,{PRINTxSTMT,
         {CRxOUT}}}}},
       "If statement: simple")
-    checkParse(t, "if a end", true, true,
-      {STMTxLIST,{IFxSTMT,{SIMPLExVAR,"a"},{STMTxLIST}}},
+    checkParse(t, "if 2 end", true, true,
+      {STMTxLIST,{IFxSTMT,{NUMLITxVAL,"2"},{STMTxLIST}}},
       "If statement: empty statement list")
-    checkParse(t, "if a print cr else print cr print cr end", true,
+    checkParse(t, "if 3 print cr else print cr print cr end", true,
       true,
-      {STMTxLIST,{IFxSTMT,{SIMPLExVAR,"a"},{STMTxLIST,{PRINTxSTMT,
+      {STMTxLIST,{IFxSTMT,{NUMLITxVAL,"3"},{STMTxLIST,{PRINTxSTMT,
         {CRxOUT}}},{STMTxLIST,{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,
         {CRxOUT}}}}},
       "If statement: else")
-    checkParse(t, "if a print cr elseif b print cr print cr else print "
+    checkParse(t, "if 4 print cr elseif 5 print cr print cr else print "
       .."cr print cr print cr end", true, true,
-      {STMTxLIST,{IFxSTMT,{SIMPLExVAR,"a"},{STMTxLIST,{PRINTxSTMT,
-        {CRxOUT}}},{SIMPLExVAR,"b"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}},
+      {STMTxLIST,{IFxSTMT,{NUMLITxVAL,"4"},{STMTxLIST,{PRINTxSTMT,
+        {CRxOUT}}},{NUMLITxVAL,"5"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}},
         {PRINTxSTMT,{CRxOUT}}},{STMTxLIST,{PRINTxSTMT,{CRxOUT}},
         {PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,{CRxOUT}}}}},
       "If statement: elseif, else")
@@ -589,46 +602,56 @@ function test_if_stmt(t)
         {PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,
         {CRxOUT}},{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,{CRxOUT}}}}},
       "If statement: multiple elseif, else")
-    checkParse(t, "if a print cr elseif b print cr print cr elseif c "
-      .."print cr print cr print cr elseif d print cr print cr print "
-      .."cr print cr elseif e print cr print cr print cr print cr "
+    checkParse(t, "if 1 print cr elseif 2 print cr print cr elseif 3 "
+      .."print cr print cr print cr elseif 4 print cr print cr print "
+      .."cr print cr elseif 5 print cr print cr print cr print cr "
       .."print cr end", true, true,
-      {STMTxLIST,{IFxSTMT,{SIMPLExVAR,"a"},{STMTxLIST,{PRINTxSTMT,
-        {CRxOUT}}},{SIMPLExVAR,"b"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}},
-        {PRINTxSTMT,{CRxOUT}}},{SIMPLExVAR,"c"},{STMTxLIST,{PRINTxSTMT,
+      {STMTxLIST,{IFxSTMT,{NUMLITxVAL,"1"},{STMTxLIST,{PRINTxSTMT,
+        {CRxOUT}}},{NUMLITxVAL,"2"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}},
+        {PRINTxSTMT,{CRxOUT}}},{NUMLITxVAL,"3"},{STMTxLIST,{PRINTxSTMT,
         {CRxOUT}},{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,{CRxOUT}}},
-        {SIMPLExVAR,"d"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,
+        {NUMLITxVAL,"4"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,
         {CRxOUT}},{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,{CRxOUT}}},
-        {SIMPLExVAR,"e"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,
+        {NUMLITxVAL,"5"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,
         {CRxOUT}},{PRINTxSTMT,{CRxOUT}},{PRINTxSTMT,{CRxOUT}},
         {PRINTxSTMT,{CRxOUT}}}}},
       "If statement: multiple elseif, no else")
-    checkParse(t, "if a elseif b elseif c elseif d elseif e else end",
+    checkParse(t, "if 1 elseif 2 elseif 3 elseif 4 elseif 5 else end",
       true, true,
-      {STMTxLIST,{IFxSTMT,{SIMPLExVAR,"a"},{STMTxLIST},{SIMPLExVAR,"b"},
-        {STMTxLIST},{SIMPLExVAR,"c"},{STMTxLIST},{SIMPLExVAR,"d"},
-        {STMTxLIST},{SIMPLExVAR,"e"},{STMTxLIST},{STMTxLIST}}},
+      {STMTxLIST,{IFxSTMT,{NUMLITxVAL,"1"},{STMTxLIST},{NUMLITxVAL,"2"},
+        {STMTxLIST},{NUMLITxVAL,"3"},{STMTxLIST},{NUMLITxVAL,"4"},
+        {STMTxLIST},{NUMLITxVAL,"5"},{STMTxLIST},{STMTxLIST}}},
       "If statement: multiple elseif, else, empty statement lists")
-    checkParse(t, "if a if b print cr else print cr end elseif c if d "
-      .."print cr else print cr end else if e print cr else print cr "
+    checkParse(t, "if 1 if 2 print cr else print cr end elseif 3 if 4 "
+      .."print cr else print cr end else if 5 print cr else print cr "
       .."end end", true, true,
-      {STMTxLIST,{IFxSTMT,{SIMPLExVAR,"a"},{STMTxLIST,{IFxSTMT,
-        {SIMPLExVAR,"b"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}}},{STMTxLIST,
-        {PRINTxSTMT,{CRxOUT}}}}},{SIMPLExVAR,"c"},{STMTxLIST,{IFxSTMT,
-        {SIMPLExVAR,"d"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}}},{STMTxLIST,
-        {PRINTxSTMT,{CRxOUT}}}}},{STMTxLIST,{IFxSTMT,{SIMPLExVAR,"e"},
+      {STMTxLIST,{IFxSTMT,{NUMLITxVAL,"1"},{STMTxLIST,{IFxSTMT,
+        {NUMLITxVAL,"2"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}}},{STMTxLIST,
+        {PRINTxSTMT,{CRxOUT}}}}},{NUMLITxVAL,"3"},{STMTxLIST,{IFxSTMT,
+        {NUMLITxVAL,"4"},{STMTxLIST,{PRINTxSTMT,{CRxOUT}}},{STMTxLIST,
+        {PRINTxSTMT,{CRxOUT}}}}},{STMTxLIST,{IFxSTMT,{NUMLITxVAL,"5"},
         {STMTxLIST,{PRINTxSTMT,{CRxOUT}}},{STMTxLIST,{PRINTxSTMT,
         {CRxOUT}}}}}}},
       "If statement: nested #1")
-    checkParse(t, "if a if b if c if d if e if f if g print cr end end "
+    checkParse(t, "if 1 if 2 if 3 if 4 if 5 if 6 if 7 print cr end end "
       .."end end end end end", true, true,
-      {STMTxLIST,{IFxSTMT,{SIMPLExVAR,"a"},{STMTxLIST,{IFxSTMT,
-        {SIMPLExVAR,"b"},{STMTxLIST,{IFxSTMT,{SIMPLExVAR,"c"},
-        {STMTxLIST,{IFxSTMT,{SIMPLExVAR,"d"},{STMTxLIST,{IFxSTMT,
-        {SIMPLExVAR,"e"},{STMTxLIST,{IFxSTMT,{SIMPLExVAR,"f"},
-        {STMTxLIST,{IFxSTMT,{SIMPLExVAR,"g"},{STMTxLIST,{PRINTxSTMT,
+      {STMTxLIST,{IFxSTMT,{NUMLITxVAL,"1"},{STMTxLIST,{IFxSTMT,
+        {NUMLITxVAL,"2"},{STMTxLIST,{IFxSTMT,{NUMLITxVAL,"3"},
+        {STMTxLIST,{IFxSTMT,{NUMLITxVAL,"4"},{STMTxLIST,{IFxSTMT,
+        {NUMLITxVAL,"5"},{STMTxLIST,{IFxSTMT,{NUMLITxVAL,"6"},
+        {STMTxLIST,{IFxSTMT,{NUMLITxVAL,"7"},{STMTxLIST,{PRINTxSTMT,
         {CRxOUT}}}}}}}}}}}}}}}}},
       "If statement: nested #2")
+    checkParse(t, "while 1 if 2 while 3 end elseif 4 while 5 if 6 end "
+      .."end elseif 7 while 8 end else while 9 end end end", true, true,
+      {STMTxLIST,{WHILExSTMT,{NUMLITxVAL,"1"},{STMTxLIST,{IFxSTMT,
+        {NUMLITxVAL,"2"},{STMTxLIST,{WHILExSTMT,{NUMLITxVAL,"3"},
+        {STMTxLIST}}},{NUMLITxVAL,"4"},{STMTxLIST,{WHILExSTMT,
+        {NUMLITxVAL,"5"},{STMTxLIST,{IFxSTMT,{NUMLITxVAL,"6"},
+        {STMTxLIST}}}}},{NUMLITxVAL,"7"},{STMTxLIST,{WHILExSTMT,
+        {NUMLITxVAL,"8"},{STMTxLIST}}},{STMTxLIST,{WHILExSTMT,
+        {NUMLITxVAL,"9"},{STMTxLIST}}}}}}},
+      "While statement: nested while & if")
 
     checkParse(t, "if cr end", false, false, nil,
       "Bad if statement: no expr")
@@ -643,8 +666,8 @@ function test_if_stmt(t)
 end
 
 
-function test_assn_stmt(t)
-    io.write("Test Suite: assignment statements\n")
+function test_assn_stmt_simple_expr(t)
+    io.write("Test Suite: assignment statements - simple expressions\n")
 
     checkParse(t, "abc=123", true, true,
       {STMTxLIST,{ASSNxSTMT,{SIMPLExVAR,"abc"},{NUMLITxVAL,"123"}}},
@@ -686,6 +709,17 @@ end
 function test_expr_simple(t)
     io.write("Test Suite: simple expressions\n")
 
+    checkParse(t, "x=true", true, true,
+      {STMTxLIST,{ASSNxSTMT,{SIMPLExVAR,"x"},{BOOLLITxVAL,"true"}}},
+      "Simple expression: true")
+    checkParse(t, "x=false", true, true,
+      {STMTxLIST,{ASSNxSTMT,{SIMPLExVAR,"x"},{BOOLLITxVAL,"false"}}},
+      "Simple expression: true")
+    checkParse(t, "x=call foo", true, true,
+      {STMTxLIST,{ASSNxSTMT,{SIMPLExVAR,"x"},{CALLxFUNC,"foo"}}},
+      "Simple expression: call")
+    checkParse(t, "x=call", false, true, nil,
+      "Bad expression: call without name")
     checkParse(t, "x=1&&2", true, true,
       {STMTxLIST,{ASSNxSTMT,{SIMPLExVAR,"x"},{{BINxOP,"&&"},
         {NUMLITxVAL,"1"},{NUMLITxVAL,"2"}}}},
@@ -851,6 +885,50 @@ function test_expr_simple(t)
       "Simple expression: array ref in parens on RHS")
     checkParse(t, "(x[1])=x[1]", true, false, nil,
       "Bad expression: array ref in parens on LHS")
+
+    checkParse(t, "x=call call f", false, false, nil,
+      "Bad expression: consecutive call keywords")
+    checkParse(t, "x=call 3", false, false, nil,
+      "Bad expression: call number")
+    checkParse(t, "x=call true", false, false, nil,
+      "Bad expression: call boolean")
+    checkParse(t, "x=call (x)", false, false, nil,
+      "Bad expression: call with parentheses")
+end
+
+
+function test_print_stmt_with_expr(t)
+    io.write("Test Suite: print statements - with expressions\n")
+
+    checkParse(t, "print x", true, true,
+      {STMTxLIST,{PRINTxSTMT,{SIMPLExVAR,"x"}}},
+      "print statement: variable")
+    checkParse(t, "print a+x[b*(c==d-f)]%g<=h", true, true,
+      {STMTxLIST,{PRINTxSTMT,{{BINxOP,"<="},{{BINxOP,"+"},{SIMPLExVAR,
+        "a"},{{BINxOP,"%"},{ARRAYxVAR,"x",{{BINxOP,"*"},{SIMPLExVAR,
+        "b"},{{BINxOP,"=="},{SIMPLExVAR,"c"},{{BINxOP,"-"},{SIMPLExVAR,
+        "d"},{SIMPLExVAR,"f"}}}}},{SIMPLExVAR,"g"}}},{SIMPLExVAR,
+        "h"}}}},
+      "print statement: expression")
+    checkParse(t, "print 1 end", true, false, nil,
+      "bad print statement: print 1 followed by end")
+end
+
+
+function test_func_stmt_with_expr(t)
+    io.write("Test Suite: function declarations - with expressions\n")
+
+    checkParse(t, "func q print abc+3 end", true, true,
+      {STMTxLIST,{FUNCxSTMT,"q",{STMTxLIST,{PRINTxSTMT,{{BINxOP,"+"},
+        {SIMPLExVAR,"abc"},{NUMLITxVAL,"3"}}}}}},
+      "func declaration: with print expr")
+    checkParse(t, "func qq print a+x[b*(c==d-f)]%g<=h end", true, true,
+      {STMTxLIST,{FUNCxSTMT,"qq",{STMTxLIST,{PRINTxSTMT,{{BINxOP,"<="},
+        {{BINxOP,"+"},{SIMPLExVAR,"a"},{{BINxOP,"%"},{ARRAYxVAR,"x",
+        {{BINxOP,"*"},{SIMPLExVAR,"b"},{{BINxOP,"=="},{SIMPLExVAR,"c"},
+        {{BINxOP,"-"},{SIMPLExVAR,"d"},{SIMPLExVAR,"f"}}}}},{SIMPLExVAR,
+        "g"}}},{SIMPLExVAR,"h"}}}}}},
+      "function declaration: complex expression")
 end
 
 
@@ -1478,6 +1556,11 @@ function test_expr_prec_assoc(t)
       {STMTxLIST,{ASSNxSTMT,{SIMPLExVAR,"x"},{{UNxOP,"+"},{{BINxOP,"%"},
         {SIMPLExVAR,"a"},{SIMPLExVAR,"b"}}}}},
       "Precedence override: unary +, %")
+
+    checkParse(t, "x=call f * 3", true, true,
+      {STMTxLIST,{ASSNxSTMT,{SIMPLExVAR,"x"},{{BINxOP,"*"},{CALLxFUNC,
+        "f"},{NUMLITxVAL,"3"}}}},
+      "Precedence check: call has high precedence")
 end
 
 
@@ -1547,12 +1630,30 @@ function test_expr_complex(t)
       "Bad complex expression: misc #4")
 
     checkParse(t, "x=((a[(b[c[(d[((e[f]))])]])]))", true, true,
-        {STMTxLIST,{ASSNxSTMT,{SIMPLExVAR,"x"},{ARRAYxVAR,"a",
-          {ARRAYxVAR,"b",{ARRAYxVAR,"c",{ARRAYxVAR,"d",{ARRAYxVAR,"e",
-          {SIMPLExVAR,"f"}}}}}}}},
+      {STMTxLIST,{ASSNxSTMT,{SIMPLExVAR,"x"},{ARRAYxVAR,"a",
+        {ARRAYxVAR,"b",{ARRAYxVAR,"c",{ARRAYxVAR,"d",{ARRAYxVAR,"e",
+        {SIMPLExVAR,"f"}}}}}}}},
       "Complex expression: many parens/brackets")
     checkParse(t, "x=((a[(b[c[(d[((e[f]))]])])]))", false, false, nil,
       "Bad complex expression: mismatched parens/brackets")
+
+    checkParse(t, "while (a+b)%d+call a!=true print cr end", true, true,
+      {STMTxLIST,{WHILExSTMT,{{BINxOP,"!="},{{BINxOP,"+"},{{BINxOP,"%"},
+        {{BINxOP,"+"},{SIMPLExVAR,"a"},{SIMPLExVAR,"b"}},{SIMPLExVAR,
+        "d"}},{CALLxFUNC,"a"}},{BOOLLITxVAL,"true"}},{STMTxLIST,
+        {PRINTxSTMT,{CRxOUT}}}}},
+      "While statment with complex expression")
+    checkParse(t, "if 6e+5==true/((call q))+-+-+-false a=3elseif 3+4+5 "
+      .."x=5else r=7end", true, true,
+      {STMTxLIST,{IFxSTMT,{{BINxOP,"=="},{NUMLITxVAL,"6e+5"},{{BINxOP,
+        "+"},{{BINxOP,"/"},{BOOLLITxVAL,"true"},{CALLxFUNC,"q"}},
+        {{UNxOP,"-"},{{UNxOP,"+"},{{UNxOP,"-"},{{UNxOP,"+"},{{UNxOP,
+        "-"},{BOOLLITxVAL,"false"}}}}}}}},{STMTxLIST,{ASSNxSTMT,
+        {SIMPLExVAR,"a"},{NUMLITxVAL,"3"}}},{{BINxOP,"+"},{{BINxOP,"+"},
+        {NUMLITxVAL,"3"},{NUMLITxVAL,"4"}},{NUMLITxVAL,"5"}},{STMTxLIST,
+        {ASSNxSTMT,{SIMPLExVAR,"x"},{NUMLITxVAL,"5"}}},{STMTxLIST,
+        {ASSNxSTMT,{SIMPLExVAR,"r"},{NUMLITxVAL,"7"}}}}},
+      "If statement with complex expression")
 end
 
 
@@ -1770,12 +1871,14 @@ function test_parseit(t)
     test_simple(t)
     test_call_stmt(t)
     test_input_stmt(t)
-    test_print_stmt(t)
-    test_func_stmt(t)
-    test_while_stmt(t)
-    test_if_stmt(t)
-    test_assn_stmt(t)
+    test_print_stmt_no_expr(t)
+    test_func_stmt_no_expr(t)
+    test_while_stmt_simple_expr(t)
+    test_if_stmt_simple_expr(t)
+    test_assn_stmt_simple_expr(t)
     test_expr_simple(t)
+    test_print_stmt_with_expr(t)
+    test_func_stmt_with_expr(t)
     test_expr_prec_assoc(t)
     test_expr_complex(t)
     test_prog(t)
