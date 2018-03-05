@@ -487,6 +487,9 @@ function parse_factor()
   -- (18) Factor: Parenthesized Expression
   if matchString("(") then
     good, ast = parse_expr()
+    if not good then
+      return false, nil
+    end
     if not matchString(")") then
       return false, nil
     end
@@ -495,8 +498,11 @@ function parse_factor()
   -- (19) Factor: Unary Operator
   elseif matchString("+") or
          matchString("-") then
-           ast = parse_factor()
-           newAST = { { UN_OP, saveLexeme }, newAST }
+           good, ast = parse_factor()
+           if not good then
+             return false, nil
+           end
+           newAST = { { UN_OP, saveLexeme }, ast }
            return true, newAST
   
   -- (20) Factor: Function Call
@@ -540,7 +546,9 @@ function parse_lvalue()
     
     if matchString("[") then
       good, newAST = parse_expr()    
-      
+      if not good then
+        return false, nil
+      end
       if not matchString("]") then
         return false, nil
       end
