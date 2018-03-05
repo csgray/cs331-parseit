@@ -278,8 +278,7 @@ function parse_expr()
     good, newAST = parse_comp_expr()
     if not good then
       return false, nil
-    end
-    
+    end   
     ast = { { BIN_OP, saveOperator }, ast, newAST }
   end
     
@@ -322,7 +321,7 @@ function parse_comp_expr()
     if not good then
       return false, nil
     end
-    
+
     ast = { { BIN_OP, saveOperator }, ast, newAST }
   end
   
@@ -333,7 +332,7 @@ end
 -- Parsing function for nonterminal "arith_expr"
 function parse_arith_expr()
   local good, ast, saveOperator, newAST
-  
+  io.write("DEBUG: PARSE_ARITH_EXPR\n")
   -- (16) Arithmetic-Expression
   good, ast = parse_term()
   if not good then
@@ -341,6 +340,7 @@ function parse_arith_expr()
   end
   
   while true do
+    io.write("BIN_OP3\n")
     saveOperator = lexemeString
     if not matchString("+") and
        not matchString("-") then
@@ -351,7 +351,6 @@ function parse_arith_expr()
     if not good then
       return false, nil
     end
-    
     ast = { { BIN_OP, saveOperator }, ast, newAST }
   end
   
@@ -362,13 +361,16 @@ end
 -- Parsing function for nonterminal "term"
 function parse_term()
   local good, ast, saveOperator, newAST
+  io.write("DEBUG: PARSE_TERM\n")
   -- (17) Term
   good, ast = parse_factor()
   if not good then
+        io.write("NOT GOOD!!!\n")
     return false, nil
   end
 
   while true do
+    io.write("BIN_OP4\n")
     saveOperator = lexemeString
     if not matchString("*") and
        not matchString("/") and 
@@ -380,7 +382,6 @@ function parse_term()
     if not good then
       return false, nil
     end
-
     ast = { { BIN_OP, saveOperator }, ast, newAST }
   end
 
@@ -390,11 +391,53 @@ end
 -- parse_factor
 -- Parsing function for nonterminal "factor"
 function parse_factor()
-  local good, ast, saveLexeme
+  io.write("DEBUG: PARSE_FACTOR\n")
+  local good, ast, saveLexeme, newAST
   saveLexeme = lexemeString
+  
+  -- (18) Factor: Parenthesized Expression
+  if matchString("(") then
+    io.write("FIRST PARENTHESES\n")
+    good, ast = parse_expr()
+    if not matchString(")") then
+      io.write("MISSING PARENTHESES\n")
+      return false, nil
+    end
+    return true, ast
+    
+  -- (19) Factor: Unary Operator
+  elseif matchString("+") or
+         matchString("-") then
+           io.write("DEBUG: UNARY OPERATOR\n")
+           ast = parse_factor()
+           newAST = { { UN_OP, saveLexeme }, newAST }
+           return true, newAST
+  
+  -- (20) Factor: Function Call
+  elseif matchString("call") then
+    saveLexeme = lexemeString
+    if not matchCategory(lexit.ID) then
+      return false, nil
+    end
+    ast = { CALL_FUNC, saveLexeme }
+    return true, ast  
+  
   -- (21) Factor: NumericLiteral
-  if matchCategory(lexit.NUMLIT) then
+  elseif matchCategory(lexit.NUMLIT) then
     ast = { NUMLIT_VAL, saveLexeme }
+    return true, ast
+    
+  -- (22) Factor: Boolean Literal
+  elseif matchCategory(lexit.KEY) then
+    ast = { BOOLLIT_VAL, saveLexeme }
+    return true, ast
+  
+  -- (23) Factor: L-Value
+  else
+    good, ast = parse_lvalue()
+    if not good then
+      return false, nil
+    end
     return true, ast
   end
 end
@@ -405,22 +448,22 @@ function parse_lvalue()
   local good, ast, newAST, saveLexeme
   saveLexeme = lexemeString
   
-  if not matchCategory(lexit.ID) then
-    return false, nil
-  end
-  
-  ast = { SIMPLE_VAR, saveLexeme }
-  
-  if matchString("[") then
-    good, newAST = parse_expr()
-    if not matchString("]") then
-      return false, nil
+  if matchCategory(lexit.ID) then
+    ast = { SIMPLE_VAR, saveLexeme }
+    
+    if matchString("[") then
+      good, newAST = parse_expr()    
+      
+      if not matchString("]") then
+        return false, nil
+      end
+    
+      ast = { ARRAY_VAR, saveLexeme, newAST }
     end
-    ast = { ARRAY_VAR, saveLexeme, newAST }
-    return true, ast
+  return true, ast  
   end
   
-  return true, ast
+  return false, nil
 end
 
 return parseit
