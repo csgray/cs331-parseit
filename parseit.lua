@@ -308,23 +308,23 @@ function parse_statement()
     end   
   
   -- (09) Statement: Assignment
-  elseif matchCategory(lexit.ID) then
+  elseif lexemeCategory == lexit.ID then
     good, ast1 = parse_lvalue()
     if not good then
       return false, nil
     end
     ast2 = {ASSN_STMT, ast1 }
-    if not matchString("=") then
-      return false, nil
-    end
-    good, ast1 = parse_expr()
-    if not good then
-      return false, nil
-    end
-    table.insert(ast2, ast1)
-    return true, ast2
-  end
     
+    if matchString("=") then
+      good, ast1 = parse_expr()
+      if not good then
+        return false, nil
+      end
+      table.insert(ast2, ast1)
+      return true, ast2
+    end
+  end
+  
   return false, nil
 end
 
