@@ -72,6 +72,17 @@ local lexemeCategory = 0
 -- Function initialize must be called before this function is called.
 local function advance()
   lexerOutString, lexerOutCategory = iterator(state, lexerOutString)
+  
+  -- Check for conditions requiring prefering an operator
+  if lexerOutCategory == lexit.ID or
+     lexerOutCategory == lexit.NUMLIT or
+     lexerOutString == "]" or
+     lexerOutString == ")" or
+     lexerOutString == "true" or
+     lexerOutString == "false" then
+       lexit.preferOp()
+  end
+  
   -- If we're not past the end, copy current lexeme into variables
   if lexerOutString ~= nil then
     lexemeString, lexemeCategory = lexerOutString, lexerOutCategory
@@ -147,7 +158,7 @@ end
 -- Parsing function for nonterminal "program"
 -- Function initialize must be called before this function is called.
 function parse_program()
-  -- (01) Program
+  -- (01) Program (start symbol)
   local good, ast = parse_stmt_list()
   return good, ast
 end
@@ -156,26 +167,79 @@ end
 -- Parsing function for nonterminal "stmt_list"
 -- Function initialize must be called before this function is called.
 function parse_stmt_list()
-  local ast = { STMT_LIST }
+  -- (02) Statement-List
+  local good, ast, newast
+  ast = { STMT_LIST }
   
-  --io.write("Lexeme String: " .. lexemeString)
-  --io.write("Lexeme Category: " .. lexemeCategory)
-  if lexemeString ~= "input"
-    and lexemeString ~= "print"
-    and lexemeString ~= "func"
-    and lexemeString ~= "call"
-    and lexemeString ~= "if"
-    and lexemeString ~= "while"
-    and lexemeCategory ~= lexit.ID then
-      return true, ast
+  while true do
+    if lexemeString ~= "input"
+      and lexemeString ~= "print"
+      and lexemeString ~= "func"
+      and lexemeString ~= "call"
+      and lexemeString ~= "if"
+      and lexemeString ~= "while"
+      and lexemeCategory ~= lexit.ID then
+        return true, ast
+    end
+    good, newast = parse_statement()
+    if not good then
+      return false, nil
+    end
+    table.insert(ast, newast)
   end
-  return false, nil
 end
 
 -- parse_statement
 -- Parsing function for nonterminal "statement"
 function parse_statement()
-  return true
+    local good, ast1, ast2, savelex
+    
+    -- (03) Statement: Input
+    if matchString("input") then
+      good, ast1 = parse_lvalue()
+      if not good then
+          return false, nil
+      end
+      return true, { INPUT_STMT, ast1 }
+    
+    -- (04) Statement: Print
+    elseif matchString("print") then
+      good, ast1 = parse_print_arg()
+      if not good then
+          return false, nil
+      end
+      ast2 = { PRINT_STMT, ast1 }
+      while true do
+        if not matchString(";") then
+          break
+        end
+        good, ast1 = parse_print_arg()
+        if not good then
+          return false, nil
+        end
+        table.insert(ast2, ast1)
+      end
+      return true, ast2
+    
+    -- (09) Statement: Assignment
+    elseif matchCategory(lexit.ID) then
+      good, ast1 = parse_lvalue()
+      if not good then
+        return false, nil
+      end
+      ast2 = {ASSN_STMT, ast1 }
+      if not matchString("=") then
+        return false, nil
+      end
+      good, ast1 = parse_expr()
+      if not good then
+        return false, nil
+      end
+      table.insert(ast2, ast1)
+      return true, ast2
+    end
+    
+    return false, nil
 end
 
 -- parse_print_arg()
@@ -187,7 +251,7 @@ end
 -- parse_expr
 -- Parsing function for nonterminal "expr"
 function parse_expr()
-  return true
+  return false, nil
 end
 
 -- parse_comp_expr
@@ -217,7 +281,9 @@ end
 -- parse_lvalue
 -- Parsing function for nonterminal "lvalue"
 function parse_lvalue()
-  return true
+  local good, ast
+  ast = { SIMPLE_VAR, lexemeString }
+  return true, ast
 end
 
 return parseit
