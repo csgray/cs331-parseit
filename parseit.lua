@@ -192,54 +192,63 @@ end
 -- parse_statement
 -- Parsing function for nonterminal "statement"
 function parse_statement()
-    local good, ast1, ast2, savelex
+  local good, ast1, ast2, saveLexeme
     
-    -- (03) Statement: Input
-    if matchString("input") then
-      good, ast1 = parse_lvalue()
-      if not good then
-          return false, nil
+  -- (03) Statement: Input
+  if matchString("input") then
+    good, ast1 = parse_lvalue()
+    if not good then
+      return false, nil
+    end
+    return true, { INPUT_STMT, ast1 }
+    
+  -- (04) Statement: Print
+  elseif matchString("print") then
+    good, ast1 = parse_print_arg()
+    if not good then
+      return false, nil
+    end
+    ast2 = { PRINT_STMT, ast1 }
+    while true do
+      if not matchString(";") then
+        break
       end
-      return true, { INPUT_STMT, ast1 }
-    
-    -- (04) Statement: Print
-    elseif matchString("print") then
       good, ast1 = parse_print_arg()
-      if not good then
-          return false, nil
-      end
-      ast2 = { PRINT_STMT, ast1 }
-      while true do
-        if not matchString(";") then
-          break
-        end
-        good, ast1 = parse_print_arg()
-        if not good then
-          return false, nil
-        end
-        table.insert(ast2, ast1)
-      end
-      return true, ast2
-    
-    -- (09) Statement: Assignment
-    elseif matchCategory(lexit.ID) then
-      good, ast1 = parse_lvalue()
-      if not good then
-        return false, nil
-      end
-      ast2 = {ASSN_STMT, ast1 }
-      if not matchString("=") then
-        return false, nil
-      end
-      good, ast1 = parse_expr()
       if not good then
         return false, nil
       end
       table.insert(ast2, ast1)
-      return true, ast2
     end
+    return true, ast2
     
-    return false, nil
+  -- 06 Statement: Function Call
+  elseif matchString("call") then
+    saveLexeme = lexemeString
+    if not matchCategory(lexit.ID) then
+      return false, nil
+    end
+    ast1 = { CALL_FUNC, saveLexeme }
+    return true, ast1
+    
+    -- (09) Statement: Assignment
+  elseif matchCategory(lexit.ID) then
+    good, ast1 = parse_lvalue()
+    if not good then
+      return false, nil
+    end
+    ast2 = {ASSN_STMT, ast1 }
+    if not matchString("=") then
+      return false, nil
+    end
+    good, ast1 = parse_expr()
+    if not good then
+      return false, nil
+    end
+    table.insert(ast2, ast1)
+    return true, ast2
+  end
+    
+  return false, nil
 end
 
 -- parse_print_arg()
