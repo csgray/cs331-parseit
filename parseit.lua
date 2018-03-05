@@ -248,6 +248,48 @@ function parse_statement()
     ast1 = { CALL_FUNC, saveLexeme }
     return true, ast1
   
+  -- (07) Statement: If
+  elseif matchString("if") then
+    good, ast1 = parse_expr()
+    if not good then
+      return false, nil
+    end
+    
+    good, ast2 = parse_stmt_list()
+    if not good then
+      return false, nil
+    end
+    
+    ast3 = { IF_STMT, ast1, ast2 }
+    
+    while matchString("elseif") do
+      good, ast1 = parse_expr()
+      if not good then
+        return false, nil
+      end
+      
+      good, ast2 = parse_stmt_list()
+      if not good then
+        return false, nil
+      end
+      
+      table.insert(ast3, ast1)
+      table.insert(ast3, ast2)
+    end
+    
+    if matchString("else") then
+      good, ast1 = parse_stmt_list()
+      if not good then
+        return false, nil
+      end
+      
+      table.insert(ast3, ast1)
+    end
+  
+    if matchString("end") then
+      return true, ast3
+    end 
+  
   -- (08) Statement: While
   elseif matchString("while") then
     good, ast1 = parse_expr()
