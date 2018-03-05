@@ -192,7 +192,7 @@ end
 -- parse_statement
 -- Parsing function for nonterminal "statement"
 function parse_statement()
-  local good, ast1, ast2, saveLexeme
+  local good, ast1, ast2, ast3, saveLexeme
     
   -- (03) Statement: Input
   if matchString("input") then
@@ -247,8 +247,25 @@ function parse_statement()
     end
     ast1 = { CALL_FUNC, saveLexeme }
     return true, ast1
+  
+  -- (08) Statement: While
+  elseif matchString("while") then
+    good, ast1 = parse_expr()
+    if not good then
+      return false, nil
+    end
     
-    -- (09) Statement: Assignment
+    good, ast2 = parse_stmt_list()
+    if not good then
+      return false, nil
+    end
+    
+    ast3 = { WHILE_STMT, ast1, ast2 }
+    if matchString("end") then
+      return true, ast3
+    end   
+  
+  -- (09) Statement: Assignment
   elseif matchCategory(lexit.ID) then
     good, ast1 = parse_lvalue()
     if not good then
