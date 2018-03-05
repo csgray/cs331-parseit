@@ -223,8 +223,23 @@ function parse_statement()
     end
     
     return true, ast2
+  
+  -- (05) Statement: Function Definition
+  elseif matchString("func") then
+    saveLexeme = lexemeString
+    if matchCategory(lexit.ID) then
+      good, ast1 = parse_stmt_list()
+      if not good then
+        return false, nil
+      end
+      
+      ast2 = { FUNC_STMT, saveLexeme, ast1 }      
+      if matchString("end") then
+        return true, ast2
+      end
+    end  
     
-  -- 06 Statement: Function Call
+  -- (06) Statement: Function Call
   elseif matchString("call") then
     saveLexeme = lexemeString
     if not matchCategory(lexit.ID) then
