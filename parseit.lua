@@ -413,7 +413,7 @@ function parse_comp_expr()
          break
     end
     
-    good, newAST = parse_comp_expr()
+    good, newAST = parse_arith_expr()
     if not good then
       return false, nil
     end
