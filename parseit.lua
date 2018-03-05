@@ -260,38 +260,166 @@ end
 -- parse_expr
 -- Parsing function for nonterminal "expr"
 function parse_expr()
-  return false, nil
+  local good, ast, saveOperator, newAST
+  
+  -- (13) Expression
+  good, ast = parse_comp_expr()
+  if not good then
+    return false, nil
+  end
+  
+  while true do
+    saveOperator = lexemeString
+    if not matchString("&&") and
+       not matchString("||") then
+         break
+    end
+    
+    good, newAST = parse_comp_expr()
+    if not good then
+      return false, nil
+    end
+    
+    ast = { { BIN_OP, saveOperator }, ast, newAST }
+  end
+    
+  return true, ast
 end
 
 -- parse_comp_expr
 -- Parsing function for nonterminal "comp_expr"
 function parse_comp_expr()
-  return true
+  local good, ast, saveOperator, newAST
+  
+  -- (14) Comparison-Expression: Not
+  if matchString("!") then
+    good, ast = parse_comp_expr()
+    if not good then
+      return false, nil
+    end
+    newAST = { { UN_OP, "!"}, ast }
+    return true, newAST
+  end
+  
+  -- (15) Comparison-Expression: Arithmetic-Expression
+  good, ast = parse_arith_expr()
+  if not good then
+    return false, nil
+  end
+  
+  while true do
+    saveOperator = lexemeString
+    if not matchString("==") and
+       not matchString("!=") and 
+       not matchString("<") and
+       not matchString("<=") and
+       not matchString(">") and
+       not matchString(">=") then
+         break
+    end
+    
+    good, newAST = parse_comp_expr()
+    if not good then
+      return false, nil
+    end
+    
+    ast = { { BIN_OP, saveOperator }, ast, newAST }
+  end
+  
+  return true, ast
 end
 
 -- parse_arith_expr
 -- Parsing function for nonterminal "arith_expr"
 function parse_arith_expr()
-  return true
+  local good, ast, saveOperator, newAST
+  
+  -- (16) Arithmetic-Expression
+  good, ast = parse_term()
+  if not good then
+    return false, nil
+  end
+  
+  while true do
+    saveOperator = lexemeString
+    if not matchString("+") and
+       not matchString("-") then
+         break
+    end
+    
+    good, newAST = parse_term()
+    if not good then
+      return false, nil
+    end
+    
+    ast = { { BIN_OP, saveOperator }, ast, newAST }
+  end
+  
+  return true, ast
 end
 
 -- parse_term
 -- Parsing function for nonterminal "term"
 function parse_term()
-  return true
+  local good, ast, saveOperator, newAST
+  -- (17) Term
+  good, ast = parse_factor()
+  if not good then
+    return false, nil
+  end
+
+  while true do
+    saveOperator = lexemeString
+    if not matchString("*") and
+       not matchString("/") and 
+       not matchString("%") then
+         break
+    end
+
+    good, newAST = parse_factor()
+    if not good then
+      return false, nil
+    end
+
+    ast = { { BIN_OP, saveOperator }, ast, newAST }
+  end
+
+  return true, ast  
 end
 
 -- parse_factor
 -- Parsing function for nonterminal "factor"
 function parse_factor()
-  return true
+  local good, ast, saveLexeme
+  saveLexeme = lexemeString
+  -- (21) Factor: NumericLiteral
+  if matchCategory(lexit.NUMLIT) then
+    ast = { NUMLIT_VAL, saveLexeme }
+    return true, ast
+  end
 end
 
 -- parse_lvalue
 -- Parsing function for nonterminal "lvalue"
 function parse_lvalue()
-  local good, ast
-  ast = { SIMPLE_VAR, lexemeString }
+  local good, ast, newAST, saveLexeme
+  saveLexeme = lexemeString
+  
+  if not matchCategory(lexit.ID) then
+    return false, nil
+  end
+  
+  ast = { SIMPLE_VAR, saveLexeme }
+  
+  if matchString("[") then
+    good, newAST = parse_expr()
+    if not matchString("]") then
+      return false, nil
+    end
+    ast = { ARRAY_VAR, saveLexeme, newAST }
+    return true, ast
+  end
+  
   return true, ast
 end
 
