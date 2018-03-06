@@ -37,7 +37,7 @@
 local parseit = {}
 lexit = require "lexit"
 
--- Symbolic Constants for AST
+-- Symbolic Constants for Abstract Syntax Tree (AST)
 local STMT_LIST   = 1
 local INPUT_STMT  = 2
 local PRINT_STMT  = 3
@@ -56,16 +56,19 @@ local SIMPLE_VAR  = 15
 local ARRAY_VAR   = 16
 
 -- Variables
+
 -- For lexer iteration
 local iterator          -- Iterator returned by lexit.lex
 local state             -- State for above iterator
 local lexerOutString    -- First value returned from iterator
 local lexerOutCategory  -- Second value returned from iterator
+
 -- For current lexeme
 local lexemeString = ""
 local lexemeCategory = 0
 
 -- Utility Functions
+
 -- advance
 -- Go to the next lexeme and load it into lexemeString, lexemeCategory.
 -- Should be called once before any parsing is done.
@@ -94,7 +97,7 @@ end
 -- initialize
 -- Initial call. Sets the input for parsing functions.
 local function initialize(program)
-  iterator, state, lexerOutString = lexit.lex(program)
+  iterator = lexit.lex(program)
   advance()
 end
 
@@ -120,7 +123,7 @@ local function matchString(string)
 end
 
 -- matchCategory
--- Sees if current lexemeCategory is qual to given lexeme category (integer).
+-- Sees if current lexemeCategory is equal to given lexeme category (integer).
 -- If it is, advances to the next lexeme and returns true.
 -- If it is not, does not advance and returns false.
 -- Function initialize must be called before this function is called.
@@ -142,9 +145,9 @@ end
 -- The AST is only valid if both booleans are true.
 function parseit.parse(program)
   initialize(program)
-  local good, ast = parse_program()
+  local good, abstractSyntaxTree = parse_program()
   local done = atEnd()
-  return good, done, ast
+  return good, done, abstractSyntaxTree
 end
 
 -- Parsing Functions
@@ -153,6 +156,7 @@ end
 -- On a successful parse, the boolean is true, the AST is valid,
 -- and the current lexeme is just past the end of the string the nonterminal expanded into.
 -- Otherwise, the boolean is false, the AST is not valid, and no guarantees are made about the current lexeme.
+-- "(line number) nonterminal" identifiers the line of the grammar.
 
 -- parse_program
 -- Parsing function for nonterminal "program"
@@ -168,8 +172,8 @@ end
 -- Function initialize must be called before this function is called.
 function parse_stmt_list()
   -- (02) Statement-List
-  local good, ast, newast
-  ast = { STMT_LIST }
+  local good, ast1, ast2
+  ast1 = { STMT_LIST }
   
   while true do
     if lexemeString ~= "input"
@@ -179,18 +183,19 @@ function parse_stmt_list()
       and lexemeString ~= "if"
       and lexemeString ~= "while"
       and lexemeCategory ~= lexit.ID then
-        return true, ast
+        return true, ast1
     end
-    good, newast = parse_statement()
+    good, ast2 = parse_statement()
     if not good then
       return false, nil
     end
-    table.insert(ast, newast)
+    table.insert(ast1, ast2)
   end
 end
 
 -- parse_statement
 -- Parsing function for nonterminal "statement"
+-- Function initialize must be called before this function is called.
 function parse_statement()
   local good, ast1, ast2, ast3, saveLexeme
     
@@ -326,10 +331,11 @@ function parse_statement()
   end
   
   return false, nil
-end
+end -- end parse_statement()
 
 -- parse_print_arg()
 -- Parsing function for nonterminal "print_arg"
+-- Function initialize must be called before this function is called.
 function parse_print_arg()
   local good, ast, saveLexeme
   saveLexeme = lexemeString
@@ -355,11 +361,12 @@ end
 
 -- parse_expr
 -- Parsing function for nonterminal "expr"
+-- Function initialize must be called before this function is called.
 function parse_expr()
-  local good, ast, saveOperator, newAST
+  local good, ast1, ast2, saveOperator
   
   -- (13) Expression
-  good, ast = parse_comp_expr()
+  good, ast1 = parse_comp_expr()
   if not good then
     return false, nil
   end
@@ -371,33 +378,34 @@ function parse_expr()
          break
     end
     
-    good, newAST = parse_comp_expr()
+    good, ast2 = parse_comp_expr()
     if not good then
       return false, nil
     end   
-    ast = { { BIN_OP, saveOperator }, ast, newAST }
+    ast1 = { { BIN_OP, saveOperator }, ast1, ast2 }
   end
     
-  return true, ast
+  return true, ast1
 end
 
 -- parse_comp_expr
 -- Parsing function for nonterminal "comp_expr"
+-- Function initialize must be called before this function is called.
 function parse_comp_expr()
-  local good, ast, saveOperator, newAST
+  local good, ast1, ast2, saveOperator
   
   -- (14) Comparison-Expression: Not
   if matchString("!") then
-    good, ast = parse_comp_expr()
+    good, ast1 = parse_comp_expr()
     if not good then
       return false, nil
     end
-    newAST = { { UN_OP, "!"}, ast }
-    return true, newAST
+    ast2 = { { UN_OP, "!"}, ast1 }
+    return true, ast2
   end
   
   -- (15) Comparison-Expression: Arithmetic-Expression
-  good, ast = parse_arith_expr()
+  good, ast1 = parse_arith_expr()
   if not good then
     return false, nil
   end
@@ -413,23 +421,24 @@ function parse_comp_expr()
          break
     end
     
-    good, newAST = parse_arith_expr()
+    good, ast2 = parse_arith_expr()
     if not good then
       return false, nil
     end
 
-    ast = { { BIN_OP, saveOperator }, ast, newAST }
+    ast1 = { { BIN_OP, saveOperator }, ast1, ast2 }
   end
   
-  return true, ast
+  return true, ast1
 end
 
 -- parse_arith_expr
 -- Parsing function for nonterminal "arith_expr"
+-- Function initialize must be called before this function is called.
 function parse_arith_expr()
-  local good, ast, saveOperator, newAST
+  local good, ast1, saveOperator, ast2
   -- (16) Arithmetic-Expression
-  good, ast = parse_term()
+  good, ast1 = parse_term()
   if not good then
     return false, nil
   end
@@ -441,22 +450,23 @@ function parse_arith_expr()
          break
     end
     
-    good, newAST = parse_term()
+    good, ast2 = parse_term()
     if not good then
       return false, nil
     end
-    ast = { { BIN_OP, saveOperator }, ast, newAST }
+    ast1 = { { BIN_OP, saveOperator }, ast1, ast2 }
   end
   
-  return true, ast
+  return true, ast1
 end
 
 -- parse_term
 -- Parsing function for nonterminal "term"
+-- Function initialize must be called before this function is called.
 function parse_term()
-  local good, ast, saveOperator, newAST
+  local good, ast1, ast2, saveOperator
   -- (17) Term
-  good, ast = parse_factor()
+  good, ast1 = parse_factor()
   if not good then
     return false, nil
   end
@@ -469,41 +479,42 @@ function parse_term()
          break
     end
 
-    good, newAST = parse_factor()
+    good, ast2 = parse_factor()
     if not good then
       return false, nil
     end
-    ast = { { BIN_OP, saveOperator }, ast, newAST }
+    ast1 = { { BIN_OP, saveOperator }, ast1, ast2 }
   end
 
-  return true, ast  
+  return true, ast1  
 end
 
 -- parse_factor
 -- Parsing function for nonterminal "factor"
+-- Function initialize must be called before this function is called.
 function parse_factor()
-  local good, ast, saveLexeme, newAST
+  local good, ast1, ast2, saveLexeme
   saveLexeme = lexemeString
   -- (18) Factor: Parenthesized Expression
   if matchString("(") then
-    good, ast = parse_expr()
+    good, ast1 = parse_expr()
     if not good then
       return false, nil
     end
     if not matchString(")") then
       return false, nil
     end
-    return true, ast
+    return true, ast1
     
   -- (19) Factor: Unary Operator
   elseif matchString("+") or
          matchString("-") then
-           good, ast = parse_factor()
+           good, ast1 = parse_factor()
            if not good then
              return false, nil
            end
-           newAST = { { UN_OP, saveLexeme }, ast }
-           return true, newAST
+           ast2 = { { UN_OP, saveLexeme }, ast1 }
+           return true, ast2
   
   -- (20) Factor: Function Call
   elseif matchString("call") then
@@ -511,41 +522,42 @@ function parse_factor()
     if not matchCategory(lexit.ID) then
       return false, nil
     end
-    ast = { CALL_FUNC, saveLexeme }
-    return true, ast  
+    ast1 = { CALL_FUNC, saveLexeme }
+    return true, ast1
   
   -- (21) Factor: NumericLiteral
   elseif matchCategory(lexit.NUMLIT) then
-    ast = { NUMLIT_VAL, saveLexeme }
-    return true, ast
+    ast1 = { NUMLIT_VAL, saveLexeme }
+    return true, ast1
     
   -- (22) Factor: Boolean Literal
   elseif matchString("true") or 
          matchString("false") then
-    ast = { BOOLLIT_VAL, saveLexeme }
-    return true, ast
+    ast1 = { BOOLLIT_VAL, saveLexeme }
+    return true, ast1
   
   -- (23) Factor: L-Value
   else
-    good, ast = parse_lvalue()
+    good, ast1 = parse_lvalue()
     if not good then
       return false, nil
     end
-    return true, ast
+    return true, ast1
   end
 end
 
 -- parse_lvalue
 -- Parsing function for nonterminal "lvalue"
+-- Function initialize must be called before this function is called.
 function parse_lvalue()
-  local good, ast, newAST, saveLexeme
+  local good, ast1, ast2, saveLexeme
   saveLexeme = lexemeString
   
   if matchCategory(lexit.ID) then
-    ast = { SIMPLE_VAR, saveLexeme }
+    ast1 = { SIMPLE_VAR, saveLexeme }
     
     if matchString("[") then
-      good, newAST = parse_expr()    
+      good, ast2 = parse_expr()    
       if not good then
         return false, nil
       end
@@ -553,9 +565,9 @@ function parse_lvalue()
         return false, nil
       end
     
-      ast = { ARRAY_VAR, saveLexeme, newAST }
+      ast1 = { ARRAY_VAR, saveLexeme, ast2 }
     end
-  return true, ast  
+  return true, ast1  
   end
   
   return false, nil
